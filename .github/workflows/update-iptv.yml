@@ -2,7 +2,11 @@ name: Auto-maintain iptv.txt
 
 # 定时检测 suwei8/blog 仓库中 iptv.txt 的直播源有效性,
 # 对失效源自动从上游聚合列表中找替补并提交回 blog 仓库.
-# 需要的 secret: BLOG_TOKEN (对 suwei8/blog 有 contents:write 权限的 PAT)
+# 检测通过 sing-box 走国内代理出口(VLESS 节点), 与观看网络一致.
+#
+# 需要的 secret:
+#   BLOG_TOKEN - 对 suwei8/blog 有 contents:write 权限的 PAT
+#   VLESS_URL  - vless:// 分享链接(检测流量经此节点出国内)
 
 on:
   schedule:
@@ -23,7 +27,26 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install sing-box
+        run: |
+          VER=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest \
+            | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
+          curl -sL -o sb.tgz \
+            "https://github.com/SagerNet/sing-box/releases/download/${VER}/sing-box-${VER#v}-linux-amd64.tar.gz"
+          tar xzf sb.tgz && mv sing-box-*-linux-amd64/sing-box /tmp/sing-box
+          /tmp/sing-box version
+
+      - name: Start CN proxy
+        env:
+          VLESS_URL: ${{ secrets.VLESS_URL }}
+        run: |
+          python3 tools/vless_to_singbox.py > /tmp/sb.json
+          nohup /tmp/sing-box run -c /tmp/sb.json > /tmp/sb.log 2>&1 &
+          sleep 3
+          curl -s -m 10 -x http://127.0.0.1:10808 "http://ip-api.com/json?fields=query,country,isp" || cat /tmp/sb.log
+
       - name: Check & update iptv.txt
         env:
           BLOG_TOKEN: ${{ secrets.BLOG_TOKEN }}
+          CHECK_PROXY: http://127.0.0.1:10808
         run: python3 tools/update_iptv.py

@@ -8,7 +8,12 @@
   4. 有变更则写回 blog 仓库
 
 需要的 secret:
-  BLOG_TOKEN - 对 suwei8/blog 有 contents 读写权限的 PAT
+  BLOG_TOKEN  - 对 suwei8/blog 有 contents:write 权限的 PAT
+  VLESS_URL   - (CI 专用) 国内代理节点, workflow 里转成 sing-box 配置
+
+环境变量:
+  CHECK_PROXY - 可选, 直播源检测走该代理(如 http://127.0.0.1:10808).
+                GitHub API 与上游列表拉取始终直连, 只有源检测走代理.
 """
 
 import base64
@@ -33,6 +38,8 @@ SKIP_DOMAINS = ("pan.13982.com",)
 
 # 候选源池: 第三方维护/每日自动更新的直播源聚合列表
 UPSTREAMS = [
+    # 综合直播源列表, 更新频繁, 酒店源/IPTV 源较多
+    "https://raw.githubusercontent.com/yoursmile66/TVBox/main/live.txt",
     # IPv4 综合列表, 每日自动更新
     "https://raw.githubusercontent.com/vbskycn/iptv/master/tv/iptv4.txt",
     "https://live.zbds.top/tv/iptv4.txt",
@@ -57,6 +64,16 @@ ALIASES = {
 }
 
 
+CHECK_PROXY = os.environ.get("CHECK_PROXY")
+if CHECK_PROXY:
+    _check_opener = urllib.request.build_opener(
+        urllib.request.ProxyHandler({"http": CHECK_PROXY, "https": CHECK_PROXY})
+    )
+else:
+    _check_opener = urllib.request.build_opener()
+_direct_opener = urllib.request.build_opener()
+
+
 def norm(name):
     """频道名归一化, 用于跨列表匹配."""
     n = name.lower()
@@ -69,9 +86,10 @@ def norm(name):
     return n.replace("台", "")
 
 
-def http_get(url, timeout=TIMEOUT, max_bytes=None):
+def http_get(url, timeout=TIMEOUT, max_bytes=None, proxied=True):
     req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    opener = _check_opener if proxied else _direct_opener
+    with opener.open(req, timeout=timeout) as r:
         data = r.read() if max_bytes is None else r.read(max_bytes)
         return r.status, data
 
@@ -121,7 +139,7 @@ def check_url(url):
 
 
 def fetch_url_text(url):
-    status, body = http_get(url, timeout=20)
+    status, body = http_get(url, timeout=20, proxied=False)
     if status != 200:
         raise RuntimeError(f"HTTP {status}")
     return body.decode("utf-8", "ignore")
@@ -183,6 +201,21 @@ def main():
     token = os.environ.get("BLOG_TOKEN")
     if not token:
         sys.exit("BLOG_TOKEN not set")
+
+    if CHECK_PROXY:
+        # 代理自检: 确认出口在国内. 代理挂了直接失败, 避免海外出口误判源死活
+        try:
+            status, body = http_get(
+                "http://ip-api.com/json?fields=query,country,isp", proxied=True
+            )
+            info = json.loads(body.decode())
+            print(
+                f"[proxy] exit={info.get('query')} {info.get('country')} {info.get('isp')}"
+            )
+            if info.get("country") != "China":
+                sys.exit(f"proxy exit is not China: {info}")
+        except Exception as e:
+            sys.exit(f"CHECK_PROXY unreachable: {e}")
 
     api = f"https://api.github.com/repos/{BLOG_REPO}/contents/{IPTV_PATH}"
     meta = gh_api("GET", api, token)
