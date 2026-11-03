@@ -165,7 +165,7 @@ def build_candidates():
                 name = line.rsplit(",", 1)[-1]
                 if i + 1 < len(lines) and not lines[i + 1].startswith("#"):
                     u = lines[i + 1]
-                    if u.startswith("http"):
+                    if u.startswith("http") and "[" not in urlparse(u).netloc:
                         index.setdefault(norm(name), []).append(u)
                         count += 1
             elif line.startswith("#"):
@@ -174,7 +174,7 @@ def build_candidates():
                 continue
             elif "," in line:
                 name, u = line.rsplit(",", 1)
-                if u.startswith("http"):
+                if u.startswith("http") and "[" not in urlparse(u).netloc:
                     index.setdefault(norm(name), []).append(u)
                     count += 1
         print(f"[upstream] {up} -> {count} entries")
@@ -235,6 +235,9 @@ def main():
         name, url = s.rsplit(",", 1)
         host = urlparse(url).netloc
         if any(d in host for d in SKIP_DOMAINS):
+            continue
+        if "[" in host:
+            # IPv6 官方 CDN 源(fanmingming): 代理无法验证, 视为可信不检测不替换
             continue
         check_items.append((i, name.strip(), url.strip()))
 
