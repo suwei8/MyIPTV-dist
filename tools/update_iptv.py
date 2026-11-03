@@ -38,8 +38,13 @@ SKIP_DOMAINS = ("pan.13982.com",)
 
 # 候选源池: 第三方维护/每日自动更新的直播源聚合列表
 UPSTREAMS = [
+    # 每日自动检测更新的央视/卫视列表, 每频道多候选
+    "https://raw.githubusercontent.com/best-fan/iptv-sources/main/cn_cctv.m3u8",
+    "https://raw.githubusercontent.com/best-fan/iptv-sources/main/cn_all.m3u8",
     # 综合直播源列表, 更新频繁, 酒店源/IPTV 源较多
     "https://raw.githubusercontent.com/yoursmile66/TVBox/main/live.txt",
+    "https://raw.githubusercontent.com/BurningC4/Chinese-IPTV/master/TV-IPV4.m3u",
+    "https://raw.githubusercontent.com/TianmuTNT/iptv/main/iptv.m3u",
     # IPv4 综合列表, 每日自动更新
     "https://raw.githubusercontent.com/vbskycn/iptv/master/tv/iptv4.txt",
     "https://live.zbds.top/tv/iptv4.txt",
