@@ -233,6 +233,9 @@ def main():
         if not s or s.endswith("#genre#") or "," not in s:
             continue
         name, url = s.rsplit(",", 1)
+        if not url.strip().startswith("http"):
+            # migu:// 等非http伪协议源(端侧解析), 不参与检测
+            continue
         host = urlparse(url).netloc
         if any(d in host for d in SKIP_DOMAINS):
             continue
