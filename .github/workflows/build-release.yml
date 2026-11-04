@@ -88,7 +88,8 @@ jobs:
           {
             "versionCode": ${VC},
             "versionName": "${VN}",
-            "apk": "https://github.com/suwei8/MyIPTV-dist/releases/download/${TAG}/${APK_NAME}",
+            "apk": "https://v.555606.xyz/${APK_NAME}",
+            "apkGithub": "https://github.com/suwei8/MyIPTV-dist/releases/download/${TAG}/${APK_NAME}",
             "apkName": "${APK_NAME}",
             "signed": "${signed}",
             "publishedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -110,3 +111,26 @@ jobs:
 
             已安装用户可在应用内「设置 → 检查更新」或启动时自动检测并覆盖安装。
           generate_release_notes: true
+
+      # APK+version.json 推到 blog 仓库(GitHub Pages → v.555606.xyz),
+      # 国内不经 api.github.com/objects.githubusercontent.com, 下载不受阻
+      - name: 同步 APK 到 blog 仓库(v.555606.xyz)
+        env:
+          BLOG_TOKEN: ${{ secrets.BLOG_TOKEN }}
+        run: |
+          if [ -z "$BLOG_TOKEN" ]; then
+            echo "::warning::secrets.BLOG_TOKEN 未配置, 跳过 blog 同步"
+            exit 0
+          fi
+          git clone --depth 1 "https://x-access-token:${BLOG_TOKEN}@github.com/suwei8/blog.git" /tmp/blog
+          cp MyIPTV-*.apk version.json /tmp/blog/
+          cd /tmp/blog
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "blog 仓库无变化, 跳过"
+          else
+            git commit -m "release ${{ steps.v.outputs.tag }}: apk + version.json (hot-update mirror)"
+            git push
+          fi
