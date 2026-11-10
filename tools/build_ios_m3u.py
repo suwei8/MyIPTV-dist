@@ -59,6 +59,9 @@ def main():
         name, url = name.strip(), url.strip()
         if not url.startswith("http"):
             continue  # migu:// 等伪协议
+        if "pan.13982.com" in url:
+            url = url.replace("&direct=1", "").replace("?direct=1&", "?").replace("?direct=1", "")
+            # 去 direct 后 /d/ 返回 wky-dy 中继链: 服务端注 Referer, iOS 播放器可播
         out.append(f'#EXTINF:-1 group-title="{group}",{name}')
         out.append(url)
     m3u = "\n".join(out) + "\n"
