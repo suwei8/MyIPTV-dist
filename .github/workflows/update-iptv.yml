@@ -50,3 +50,8 @@ jobs:
           BLOG_TOKEN: ${{ secrets.BLOG_TOKEN }}
           CHECK_PROXY: http://127.0.0.1:10808
         run: python3 tools/update_iptv.py
+
+      - name: Rebuild ios.m3u
+        env:
+          BLOG_TOKEN: ${{ secrets.BLOG_TOKEN }}
+        run: python3 tools/build_ios_m3u.py
